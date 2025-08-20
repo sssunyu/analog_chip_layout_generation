@@ -9,7 +9,7 @@ from component import Component
 from rule_engine import RuleSelector
 from visualization import visualize_placements
 
-# 'SYMMETRIC_RULES', 'check_overlap', 'reduce_components_to_target' 函式維持不變...
+# 'SYMMETRIC_RULES', 'process_component_recursively', 'check_overlap' 函式維持不變...
 SYMMETRIC_RULES = [
     "mirrored_vertical",
     "mirrored_horizontal",
@@ -18,27 +18,14 @@ SYMMETRIC_RULES = [
     "triplet_horizontal",
 ]
 
-# --- 主要修改處：process_component_recursively 函式 ---
 def process_component_recursively(component: Component, rule_selector: RuleSelector, max_depth: int) -> List[Component]:
     """遞迴地對一個元件應用切割規則，直到達到最大深度。"""
     if component.level >= max_depth:
         return [component]
-
-    # --- 修改開始 ---
-    # 1. 取得所有可用的規則名稱
     available_rules = list(rule_selector.rules.keys())
-    
-    # 2. 根據 config.py 中的設定，為每個規則建立對應的權重列表
-    #    使用 .get(rule, 1) 來確保即使有規則未在權重字典中定義，也會給予一個預設權重 1
     weights = [config.RULE_WEIGHTS.get(rule, 1) for rule in available_rules]
-    
-    # 3. 使用加權隨機選擇（random.choices）來決定要應用的規則
-    #    random.choices 會回傳一個列表，所以我們用 [0] 來取得唯一的選擇
     rule_to_apply = random.choices(available_rules, weights=weights, k=1)[0]
-    # --- 修改結束 ---
-
-    mode_to_apply = "keep_all" 
-
+    mode_to_apply = "keep_all"
     params = {"gap": config.COMPONENT_GAP}
     if rule_to_apply in ["vertical", "horizontal"]:
         params["ratio"] = random.uniform(0.3, 0.7)
@@ -50,7 +37,7 @@ def process_component_recursively(component: Component, rule_selector: RuleSelec
         params["num_splits"] = num_splits
         params["orientation"] = random.choice(['vertical', 'horizontal'])
         params["alignment"] = random.choice(['left', 'center', 'right'])
-        params["global_scale"] = random.uniform(0.7, 0.95)
+        params["global_scale"] = random.uniform(0.75, 0.95)
         params["individual_scales"] = [random.uniform(0.8, 1.0) for _ in range(num_splits)]
     elif rule_to_apply == "mirrored_vertical":
         params["ratio_h"] = random.uniform(0.3, 0.7)
@@ -60,17 +47,13 @@ def process_component_recursively(component: Component, rule_selector: RuleSelec
         params["ratio_w"] = random.uniform(0.2, 0.45)
     elif rule_to_apply == "triplet_horizontal":
         params["ratio_h"] = random.uniform(0.2, 0.45)
-
     new_components = rule_selector.apply(component, rule_to_apply, mode_to_apply, **params)
-    
     if rule_to_apply in SYMMETRIC_RULES:
         for comp in new_components:
             comp.symmetrical = True
-
     final_components = []
     for comp in new_components:
         final_components.extend(process_component_recursively(comp, rule_selector, max_depth))
-    
     return final_components
 
 def check_overlap(comp1: Component, comp2: Component) -> bool:
@@ -94,6 +77,12 @@ def reduce_components_to_target(components: List[Component], target_count: int, 
             for j in range(i + 1, len(components)):
                 comp1 = components[i]
                 comp2 = components[j]
+
+                # --- 主要修改處：跳過對稱元件 ---
+                # 如果任一元件是對稱元件，則不考慮將它們合併
+                if comp1.symmetrical or comp2.symmetrical:
+                    continue
+
                 if abs(comp1.x + comp1.width + gap - comp2.x) < TOLERANCE and \
                    abs(comp1.y - comp2.y) < TOLERANCE and \
                    abs(comp1.height - comp2.height) < TOLERANCE:
@@ -118,7 +107,7 @@ def reduce_components_to_target(components: List[Component], target_count: int, 
             components.append(new_component)
             print(f"策略 [合併] 成功：2 個元件合併為 1 個。目前總數: {len(components)}")
         else:
-            print("警告：策略 [合併] 失敗，找不到任何可合併的相鄰元件。無法精確達到目標數量。")
+            print("警告：策略 [合併] 失敗，找不到任何可合併的非對稱元件。無法精確達到目標數量。")
             break
     return components
 
@@ -180,9 +169,17 @@ def main():
                     break
             if not placement_successful:
                 print("策略 [填補] 失敗：找不到可用空間。改用策略 [切割]。")
-                candidates = sorted([c for c in all_final_components if c.width > config.COMPONENT_GAP * 2 and c.height > config.COMPONENT_GAP * 2], key=lambda c: c.width * c.height, reverse=True)
+                
+                # --- 主要修改處：從候選清單中排除對稱元件 ---
+                candidates = sorted([
+                    c for c in all_final_components if 
+                    not c.symmetrical and  # 保護條件：元件不能是對稱的
+                    c.width > config.COMPONENT_GAP * 2 and 
+                    c.height > config.COMPONENT_GAP * 2
+                ], key=lambda c: c.width * c.height, reverse=True)
+
                 if not candidates:
-                    print("錯誤：策略 [切割] 失敗，已無任何足夠大的元件可供切割。無法達到目標數量。")
+                    print("錯誤：策略 [切割] 失敗，已無任何足夠大的「非對稱」元件可供切割。")
                     break
                 component_to_split = candidates[0]
                 preferred_direction = 'vertical' if component_to_split.width > component_to_split.height else 'horizontal'
