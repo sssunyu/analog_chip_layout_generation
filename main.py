@@ -17,6 +17,7 @@ def process_component_recursively(component: Component, rule_selector: RuleSelec
     mode_to_apply = "keep_all" 
 
     params = {"gap": config.COMPONENT_GAP}
+    # 根據選擇的規則，準備對應的隨機參數
     if rule_to_apply in ["vertical", "horizontal"]:
         params["ratio"] = random.uniform(0.3, 0.7)
     elif rule_to_apply == "quadrants":
@@ -29,6 +30,18 @@ def process_component_recursively(component: Component, rule_selector: RuleSelec
         params["alignment"] = random.choice(['left', 'center', 'right'])
         params["global_scale"] = random.uniform(0.7, 0.95)
         params["individual_scales"] = [random.uniform(0.8, 1.0) for _ in range(num_splits)]
+    # --- 為新的對稱規則新增參數 ---
+    elif rule_to_apply == "mirrored_vertical":
+        params["ratio_h"] = random.uniform(0.3, 0.7)
+    elif rule_to_apply == "mirrored_horizontal":
+        params["ratio_v"] = random.uniform(0.3, 0.7)
+    elif rule_to_apply == "triplet_vertical":
+        # 側邊元件的比例，必須小於 0.5
+        params["ratio_w"] = random.uniform(0.2, 0.45)
+    elif rule_to_apply == "triplet_horizontal":
+        # 側邊元件的比例，必須小於 0.5
+        params["ratio_h"] = random.uniform(0.2, 0.45)
+    # common_centroid 不需要額外參數
 
     new_components = rule_selector.apply(component, rule_to_apply, mode_to_apply, **params)
     
