@@ -9,7 +9,15 @@ from component import Component
 from rule_engine import RuleSelector
 from visualization import visualize_placements
 
-# 'process_component_recursively' 和 'check_overlap' 函式維持不變...
+# 定義哪些規則屬於對稱規則
+SYMMETRIC_RULES = [
+    "mirrored_vertical",
+    "mirrored_horizontal",
+    "common_centroid",
+    "triplet_vertical",
+    "triplet_horizontal",
+]
+
 def process_component_recursively(component: Component, rule_selector: RuleSelector, max_depth: int) -> List[Component]:
     """遞迴地對一個元件應用切割規則，直到達到最大深度。"""
     if component.level >= max_depth:
@@ -42,12 +50,20 @@ def process_component_recursively(component: Component, rule_selector: RuleSelec
 
     new_components = rule_selector.apply(component, rule_to_apply, mode_to_apply, **params)
     
+    # --- 主要修改處：標記對稱元件 ---
+    # 如果這次使用的規則是對稱規則，就把產生的新元件標記起來
+    if rule_to_apply in SYMMETRIC_RULES:
+        for comp in new_components:
+            comp.symmetrical = True
+
     final_components = []
     for comp in new_components:
+        # 將標記（或未標記）的元件繼續向下遞迴
         final_components.extend(process_component_recursively(comp, rule_selector, max_depth))
     
     return final_components
 
+# ... 'check_overlap' 和 'main' 的其餘部分維持不變 ...
 def check_overlap(comp1: Component, comp2: Component) -> bool:
     """檢查兩個元件是否重疊"""
     return not (comp1.x + comp1.width < comp2.x or
@@ -55,10 +71,8 @@ def check_overlap(comp1: Component, comp2: Component) -> bool:
                 comp1.y + comp1.height < comp2.y or
                 comp2.y + comp2.height < comp1.y)
 
-
 def main():
     """主執行函式"""
-    # ... (前面的程式碼維持不變) ...
     target_area = random.uniform(config.MN_RECT_AREA_RANGE[0], config.MN_RECT_AREA_RANGE[1])
     aspect_ratio = random.uniform(config.MN_ASPECT_RATIO_RANGE[0], config.MN_ASPECT_RATIO_RANGE[1])
     mn_rect_height = math.sqrt(target_area / aspect_ratio)
@@ -108,10 +122,7 @@ def main():
                     break
             
             if is_valid:
-                # --- 主要修改處 ---
-                # 為每個填補元件，隨機決定要切割 0 到 MAX_J_ITERATIONS 次
                 num_splits = random.randint(0, config.MAX_J_ITERATIONS)
-                
                 filler_components = process_component_recursively(new_filler, rule_selector, num_splits)
                 all_final_components.extend(filler_components)
                 print(f"成功生成第 {i+1} 組填補元件 ({len(filler_components)} 個，切割 {num_splits} 次)。")

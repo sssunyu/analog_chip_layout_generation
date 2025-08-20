@@ -11,37 +11,82 @@ def is_aspect_ratio_valid(width: float, height: float) -> bool:
     ratio = max(width / height, height / width)
     return ratio <= config.MAX_ASPECT_RATIO
 
-# split_mirrored_vertical, split_mirrored_horizontal, split_common_centroid_quadrants
-# 這三個函式不需修改，它們依賴的基礎函式已經被修改了
-
 def split_mirrored_vertical(component: Component, ratio_h: float = 0.5, gap: float = 0.01) -> List[Component]:
-    if component.width <= gap or component.height <= 2 * gap:
+    """
+    【已修正】先垂直對半切，然後對左右兩半進行水平切割，形成真正的鏡像對稱。
+    左上元件的高度會等於右下元件的高度。
+    """
+    # 基本的尺寸有效性檢查
+    if component.width <= gap or component.height <= gap:
         return [component]
-    halves = split_vertical(component, ratio=0.5, gap=gap)
-    if len(halves) < 2:
+
+    w_half = (component.width - gap) / 2
+    h1 = (component.height - gap) * ratio_h
+    h2 = (component.height - gap) * (1 - ratio_h)
+
+    if w_half <= 0 or h1 <= 0 or h2 <= 0:
         return [component]
-    left_splits = split_horizontal(halves[0], ratio=ratio_h, gap=gap)
-    right_splits = split_horizontal(halves[1], ratio=1 - ratio_h, gap=gap)
-    if len(left_splits) < 2 or len(right_splits) < 2:
+
+    # 檢查所有潛在子元件的長寬比
+    if not is_aspect_ratio_valid(w_half, h1) or not is_aspect_ratio_valid(w_half, h2):
         return [component]
-    return [left_splits[1], left_splits[0], right_splits[0], right_splits[1]]
+
+    # 直接計算四個象限的座標和尺寸
+    x_left = component.x
+    x_right = component.x + w_half + gap
+    y_bottom = component.y
+    
+    # 建立四個子元件
+    # 左半邊
+    comp_bl = Component(x_left, y_bottom, w_half, h1, component.group_id, component.level + 1)
+    comp_tl = Component(x_left, y_bottom + h1 + gap, w_half, h2, component.group_id, component.level + 1)
+    
+    # 右半邊 (高度反轉以形成鏡像)
+    comp_br = Component(x_right, y_bottom, w_half, h2, component.group_id, component.level + 1)
+    comp_tr = Component(x_right, y_bottom + h2 + gap, w_half, h1, component.group_id, component.level + 1)
+    
+    return [comp_bl, comp_tl, comp_br, comp_tr]
+
 
 def split_mirrored_horizontal(component: Component, ratio_v: float = 0.5, gap: float = 0.01) -> List[Component]:
-    if component.height <= gap or component.width <= 2 * gap:
+    """
+    【已修正】先水平對半切，然後對上下兩半進行垂直切割，形成真正的鏡像對稱。
+    左上元件的寬度會等於右下元件的寬度。
+    """
+    if component.height <= gap or component.width <= gap:
         return [component]
-    halves = split_horizontal(component, ratio=0.5, gap=gap)
-    if len(halves) < 2:
+
+    h_half = (component.height - gap) / 2
+    w1 = (component.width - gap) * ratio_v
+    w2 = (component.width - gap) * (1 - ratio_v)
+
+    if h_half <= 0 or w1 <= 0 or w2 <= 0:
         return [component]
-    top_splits = split_vertical(halves[1], ratio=ratio_v, gap=gap)
-    bottom_splits = split_vertical(halves[0], ratio=1 - ratio_v, gap=gap)
-    if len(top_splits) < 2 or len(bottom_splits) < 2:
+
+    if not is_aspect_ratio_valid(w1, h_half) or not is_aspect_ratio_valid(w2, h_half):
         return [component]
-    return [top_splits[0], top_splits[1], bottom_splits[0], bottom_splits[1]]
+
+    y_bottom = component.y
+    y_top = component.y + h_half + gap
+    x_left = component.x
+
+    # 下半邊
+    comp_bl = Component(x_left, y_bottom, w1, h_half, component.group_id, component.level + 1)
+    comp_br = Component(x_left + w1 + gap, y_bottom, w2, h_half, component.group_id, component.level + 1)
+
+    # 上半邊 (寬度反轉以形成鏡像)
+    comp_tl = Component(x_left, y_top, w2, h_half, component.group_id, component.level + 1)
+    comp_tr = Component(x_left + w2 + gap, y_top, w1, h_half, component.group_id, component.level + 1)
+    
+    return [comp_bl, comp_br, comp_tl, comp_tr]
+
 
 def split_common_centroid_quadrants(component: Component, gap: float = 0.01) -> List[Component]:
+    # This rule is correct, no changes needed.
     return split_quadrants(component, ratio_v=0.5, ratio_h=0.5, gap=gap)
 
 def split_symmetric_triplet_vertical(component: Component, ratio_w: float = 0.25, gap: float = 0.01) -> List[Component]:
+    # This rule is correct, no changes needed.
     if ratio_w <= 0 or ratio_w >= 0.5: return [component]
     total_gap = 2 * gap
     if component.width <= total_gap: return [component]
@@ -49,7 +94,6 @@ def split_symmetric_triplet_vertical(component: Component, ratio_w: float = 0.25
     w_center = (component.width - total_gap) * (1 - 2 * ratio_w)
     if w_side <= 0 or w_center <= 0: return [component]
 
-    # --- 新增長寬比檢查 ---
     if not is_aspect_ratio_valid(w_side, component.height) or \
        not is_aspect_ratio_valid(w_center, component.height):
         return [component]
@@ -62,6 +106,7 @@ def split_symmetric_triplet_vertical(component: Component, ratio_w: float = 0.25
     return [comp_left, comp_center, comp_right]
 
 def split_symmetric_triplet_horizontal(component: Component, ratio_h: float = 0.25, gap: float = 0.01) -> List[Component]:
+    # This rule is correct, no changes needed.
     if ratio_h <= 0 or ratio_h >= 0.5: return [component]
     total_gap = 2 * gap
     if component.height <= total_gap: return [component]
@@ -69,7 +114,6 @@ def split_symmetric_triplet_horizontal(component: Component, ratio_h: float = 0.
     h_center = (component.height - total_gap) * (1 - 2 * ratio_h)
     if h_side <= 0 or h_center <= 0: return [component]
 
-    # --- 新增長寬比檢查 ---
     if not is_aspect_ratio_valid(component.width, h_side) or \
        not is_aspect_ratio_valid(component.width, h_center):
         return [component]
