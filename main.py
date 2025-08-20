@@ -9,7 +9,7 @@ from component import Component
 from rule_engine import RuleSelector
 from visualization import visualize_placements
 
-# 'SYMMETRIC_RULES', 'process_component_recursively', 'check_overlap' 函式維持不變...
+# 'SYMMETRIC_RULES', 'check_overlap', 'reduce_components_to_target' 函式維持不變...
 SYMMETRIC_RULES = [
     "mirrored_vertical",
     "mirrored_horizontal",
@@ -18,16 +18,28 @@ SYMMETRIC_RULES = [
     "triplet_horizontal",
 ]
 
+# --- 主要修改處：process_component_recursively 函式 ---
 def process_component_recursively(component: Component, rule_selector: RuleSelector, max_depth: int) -> List[Component]:
     """遞迴地對一個元件應用切割規則，直到達到最大深度。"""
     if component.level >= max_depth:
         return [component]
 
-    rule_to_apply = random.choice(list(rule_selector.rules.keys()))
+    # --- 修改開始 ---
+    # 1. 取得所有可用的規則名稱
+    available_rules = list(rule_selector.rules.keys())
+    
+    # 2. 根據 config.py 中的設定，為每個規則建立對應的權重列表
+    #    使用 .get(rule, 1) 來確保即使有規則未在權重字典中定義，也會給予一個預設權重 1
+    weights = [config.RULE_WEIGHTS.get(rule, 1) for rule in available_rules]
+    
+    # 3. 使用加權隨機選擇（random.choices）來決定要應用的規則
+    #    random.choices 會回傳一個列表，所以我們用 [0] 來取得唯一的選擇
+    rule_to_apply = random.choices(available_rules, weights=weights, k=1)[0]
+    # --- 修改結束 ---
+
     mode_to_apply = "keep_all" 
 
     params = {"gap": config.COMPONENT_GAP}
-    # ... (其餘參數設定維持不變) ...
     if rule_to_apply in ["vertical", "horizontal"]:
         params["ratio"] = random.uniform(0.3, 0.7)
     elif rule_to_apply == "quadrants":
@@ -68,7 +80,6 @@ def check_overlap(comp1: Component, comp2: Component) -> bool:
                 comp1.y + comp1.height < comp2.y or
                 comp2.y + comp2.height < comp1.y)
 
-# --- 新增的合併函式 ---
 def reduce_components_to_target(components: List[Component], target_count: int, gap: float) -> List[Component]:
     """
     透過合併相鄰的元件來減少元件總數，直到等於目標數量。
@@ -78,131 +89,80 @@ def reduce_components_to_target(components: List[Component], target_count: int, 
         best_pair_to_merge = None
         min_combined_area = float('inf')
         merged_props = {}
-        
-        # 使用一個微小的容錯值來比較浮點數
         TOLERANCE = 1e-5
-
-        # 遍歷所有可能的元件對，尋找最佳合併目標
         for i in range(len(components)):
             for j in range(i + 1, len(components)):
                 comp1 = components[i]
                 comp2 = components[j]
-
-                # 檢查是否可以水平合併 (comp1 在左，comp2 在右)
                 if abs(comp1.x + comp1.width + gap - comp2.x) < TOLERANCE and \
                    abs(comp1.y - comp2.y) < TOLERANCE and \
                    abs(comp1.height - comp2.height) < TOLERANCE:
-                    
                     combined_area = (comp1.width * comp1.height) + (comp2.width * comp2.height)
                     if combined_area < min_combined_area:
                         min_combined_area = combined_area
                         best_pair_to_merge = (comp1, comp2)
-                        merged_props = {
-                            'x': comp1.x, 'y': comp1.y,
-                            'width': comp1.width + comp2.width + gap,
-                            'height': comp1.height
-                        }
-
-                # 檢查是否可以垂直合併 (comp1 在下，comp2 在上)
+                        merged_props = {'x': comp1.x, 'y': comp1.y, 'width': comp1.width + comp2.width + gap, 'height': comp1.height}
                 elif abs(comp1.y + comp1.height + gap - comp2.y) < TOLERANCE and \
                      abs(comp1.x - comp2.x) < TOLERANCE and \
                      abs(comp1.width - comp2.width) < TOLERANCE:
-
                     combined_area = (comp1.width * comp1.height) + (comp2.width * comp2.height)
                     if combined_area < min_combined_area:
                         min_combined_area = combined_area
                         best_pair_to_merge = (comp1, comp2)
-                        merged_props = {
-                            'x': comp1.x, 'y': comp1.y,
-                            'width': comp1.width,
-                            'height': comp1.height + comp2.height + gap
-                        }
-        
-        # 如果找到了可以合併的一對，就執行合併
+                        merged_props = {'x': comp1.x, 'y': comp1.y, 'width': comp1.width, 'height': comp1.height + comp2.height + gap}
         if best_pair_to_merge:
             comp_to_remove1, comp_to_remove2 = best_pair_to_merge
-            
-            new_component = Component(
-                x=merged_props['x'], y=merged_props['y'],
-                width=merged_props['width'], height=merged_props['height'],
-                group_id=min(comp_to_remove1.group_id, comp_to_remove2.group_id),
-                level=min(comp_to_remove1.level, comp_to_remove2.level)
-            )
-            
+            new_component = Component(x=merged_props['x'], y=merged_props['y'], width=merged_props['width'], height=merged_props['height'], group_id=min(comp_to_remove1.group_id, comp_to_remove2.group_id), level=min(comp_to_remove1.level, comp_to_remove2.level))
             components.remove(comp_to_remove1)
             components.remove(comp_to_remove2)
             components.append(new_component)
             print(f"策略 [合併] 成功：2 個元件合併為 1 個。目前總數: {len(components)}")
         else:
             print("警告：策略 [合併] 失敗，找不到任何可合併的相鄰元件。無法精確達到目標數量。")
-            break # 如果找不到任何可合併的對象，就終止迴圈
-
+            break
     return components
 
 def main():
     """主執行函式"""
-    # --- 從範圍中選定一個確切的目標數量 ---
     target_min, target_max = config.TOTAL_COMPONENT_COUNT_RANGE
     target_count = random.randint(target_min, target_max)
-    
-    # ... (計算 m*n 尺寸的程式碼維持不變) ...
     target_area = random.uniform(config.MN_RECT_AREA_RANGE[0], config.MN_RECT_AREA_RANGE[1])
     aspect_ratio = random.uniform(config.MN_ASPECT_RATIO_RANGE[0], config.MN_ASPECT_RATIO_RANGE[1])
     mn_rect_height = math.sqrt(target_area / aspect_ratio)
     mn_rect_width = aspect_ratio * mn_rect_height
-    
     if mn_rect_width >= config.CANVAS_WIDTH or mn_rect_height >= config.CANVAS_HEIGHT:
         print(f"警告：隨機生成的 m*n 尺寸 ({mn_rect_width:.2f}x{mn_rect_height:.2f}) 過大，將使用最小面積與正方形。")
         fallback_area = config.MN_RECT_AREA_RANGE[0]
         mn_rect_height = math.sqrt(fallback_area)
         mn_rect_width = mn_rect_height
-    
     print(f"本次 m*n 矩形尺寸: {mn_rect_width:.2f} x {mn_rect_height:.2f} (長寬比: {aspect_ratio:.2f})")
     print(f"本次隨機目標元件總數: {target_count} (範圍: {config.TOTAL_COMPONENT_COUNT_RANGE})")
-    
     rule_selector = RuleSelector()
     all_final_components = []
-    
     mn_center_x = (config.CANVAS_WIDTH - mn_rect_width) / 2
     mn_center_y = (config.CANVAS_HEIGHT - mn_rect_height) / 2
-
-    # --- 步驟 1 & 2: 動態尋找中心區域切割深度 ---
     print(f"\n--- 步驟 1 & 2: 動態尋找中心區域切割深度 ---")
     center_components = []
     initial_component = Component(x=mn_center_x, y=mn_center_y, width=mn_rect_width, height=mn_rect_height, group_id=0, level=0)
-    
     best_trial_components = [initial_component]
     min_diff = float('inf')
-
-    # 改為尋找最接近目標數量的深度，而不是第一個超過的
     for k in range(1, config.MAX_K_ITERATIONS + 2):
         trial_components = process_component_recursively(initial_component, rule_selector, k)
         print(f"嘗試深度 k={k}，生成 {len(trial_components)} 個元件...")
-
-        # 如果生成數量超過範圍太多，就停止
         if len(trial_components) > target_max * 1.5:
              print(f"已遠超出目標範圍，採用上一個最接近的結果。")
              break
-        
-        # 找到一個比目前更好的（更接近目標的）結果
         diff = abs(len(trial_components) - target_count)
         if diff < min_diff:
             min_diff = diff
             best_trial_components = trial_components
-            # 如果剛好等於，那就太棒了，直接用這個結果
             if diff == 0:
                 break
-    
     center_components = best_trial_components
     all_final_components.extend(center_components)
     print(f"中心區域最終生成了 {len(center_components)} 個元件。")
-
-
-    # --- 主要修改處：擴充為增加、減少、或不變三種情況 ---
     if len(all_final_components) < target_count:
-        # 維持原有的「增加」邏輯
         print(f"\n--- 步驟 3 & 4: 元件數量 ({len(all_final_components)}) 低於目標 {target_count}，開始精細調整 ---")
-        # ... (此處的增加邏輯與前一版完全相同) ...
         filler_group_id_counter = 1
         while len(all_final_components) < target_count:
             placement_successful = False
@@ -243,17 +203,11 @@ def main():
                 else:
                     print(f"錯誤：策略 [切割] 失敗，最大元件在兩個方向上都無法被切割。")
                     break
-    
     elif len(all_final_components) > target_count:
-        # 新增的「減少」邏輯
         print(f"\n--- 步驟 5: 元件數量 ({len(all_final_components)}) 高於目標 {target_count}，開始合併 ---")
         all_final_components = reduce_components_to_target(all_final_components, target_count, config.COMPONENT_GAP)
-
     else:
-        # 數量剛好
         print(f"\n中心元件數量 ({len(all_final_components)}) 已精確滿足目標 {target_count}，無需調整。")
-
-
     print(f"\n--- 目標達成，總共生成 {len(all_final_components)} 個元件。開始繪圖... ---")
     visualize_placements(all_final_components, (config.CANVAS_WIDTH, config.CANVAS_HEIGHT), (mn_rect_width, mn_rect_height))
     print("圖檔已儲存為 synthetic_layout.png")

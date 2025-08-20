@@ -24,3 +24,26 @@ COMPONENT_GAP = 0.01      # 元件間的最小間隙
 
 # --- 元件幾何限制 ---
 MAX_ASPECT_RATIO = 6.0    # 元件的寬高比或高寬比最大值
+
+# --- 新增：規則選擇權重 ---
+# 數值越大，該規則被選中的機率越高。
+# 您可以根據需求調整這些權重。
+RULE_WEIGHTS = {
+    # --- 基本不對稱規則 ---
+    "vertical": 8,
+    "horizontal": 8,
+    "quadrants": 6,
+    "aligned": 4,
+    
+    # --- 對稱規則 (依照您的要求調整) ---
+    # 1. 水平/垂直鏡像對稱 (最高機率)
+    "mirrored_vertical": 12,
+    "mirrored_horizontal": 12,
+    
+    # 2. 共質心對稱 (中等機率)
+    "common_centroid": 7,
+    
+    # 3. 三元件對稱 (最低機率)
+    "triplet_vertical": 2,
+    "triplet_horizontal": 2,
+}
