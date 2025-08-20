@@ -10,7 +10,8 @@ MN_ASPECT_RATIO_RANGE = (0.7, 1.4)   # 設定 m*n 矩形的長寬比 (寬/高) �
 
 # --- 流程控制參數 ---
 K_ITERATIONS = 5          # 中心區域初始切割遞迴深度
-J_ITERATIONS = 2          # 填補元件切割遞迴深度
+# J_ITERATIONS = 2        <- 舊設定
+MAX_J_ITERATIONS = 2      # 填補元件切割遞迴深度的「最大值」
 NUM_FILLER_COMPONENTS = 10 # 填補元件的數量
 
 # --- 元件尺寸與間隙 ---
