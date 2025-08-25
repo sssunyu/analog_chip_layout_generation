@@ -12,3 +12,4 @@ class Component:
     height: float
     group_id: int
     level: int = 0
+    symmetrical: bool = False # 新增屬性：是否為對稱切割的產物
