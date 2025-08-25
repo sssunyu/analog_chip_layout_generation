@@ -3,11 +3,11 @@
 from aclg.dataclass.component import Component
 
 def split_vertical(
-        component_to_split: Component, 
+        component: Component, 
         ratio: float = 0.5
         ) -> list[Component]:
     
-    parent = component_to_split
+    parent = component
 
     width1 = parent.width * ratio
     width2 = parent.width * (1 - ratio)
@@ -21,7 +21,6 @@ def split_vertical(
         y=parent.y,
         width=width1,
         height=parent.height,
-        level=parent.level + 1,
         generate_rule="split_basic"
     )
 
@@ -30,18 +29,17 @@ def split_vertical(
         y=parent.y,
         width=width2,
         height=parent.height,
-        level=parent.level + 1,
         generate_rule="split_basic"
     )
     
     return [left_component, right_component]
 
 def split_horizontal(
-        component_to_split: Component, 
+        component: Component, 
         ratio: float = 0.5
         ) -> list[Component]:
     
-    parent = component_to_split
+    parent = component
     
     height1 = parent.height * ratio
     height2 = parent.height * (1 - ratio)
@@ -54,7 +52,6 @@ def split_horizontal(
         y=y1,
         width=parent.width,
         height=height1,
-        level=parent.level + 1,
         generate_rule="split_basic"
     )
 
@@ -64,7 +61,6 @@ def split_horizontal(
         y=y2,
         width=parent.width,
         height=height2,
-        level=parent.level + 1,
         generate_rule="split_basic"
     )
     

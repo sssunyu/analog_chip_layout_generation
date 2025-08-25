@@ -6,24 +6,24 @@ symmetric_1 refer to cutting at the center of the component
 """
 
 def split_symmetric_1_vertical(
-        component_to_split: Component
+        component: Component
 ) -> list[Component]:
 
-    components = split_vertical(component_to_split, ratio=0.5)
+    components = split_vertical(component, ratio=0.5)
 
     for comp in components:
-        comp.generate_rule = "split_symmetric_1"
+        comp.generate_rule = "symmetric_1"
 
     return components
 
 
 def split_symmetric_1_horizontal(
-        component_to_split: Component
+        component: Component
 ) -> list[Component]:
 
-    components = split_horizontal(component_to_split, ratio=0.5)
+    components = split_horizontal(component, ratio=0.5)
 
     for comp in components:
-        comp.generate_rule = "split_symmetric_1"
+        comp.generate_rule = "symmetric_1"
 
     return components
