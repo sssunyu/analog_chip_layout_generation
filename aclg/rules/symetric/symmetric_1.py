@@ -1,4 +1,4 @@
-from aclg.rules.split_basic import split_vertical, split_horizontal
+from aclg.rules.split.split_basic import split_vertical, split_horizontal
 from aclg.dataclass.component import Component
 
 """
