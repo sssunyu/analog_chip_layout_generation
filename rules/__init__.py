@@ -1,21 +1,28 @@
 # rules/__init__.py
-import pkgutil
-import inspect
-from typing import Dict, Callable
+from .split_basic import split_vertical, split_horizontal, split_quadrants
+from .split_aligned import split_aligned
+from .split_symmetric import (
+    split_mirrored_vertical,
+    split_mirrored_horizontal,
+    split_common_centroid_quadrants,
+    split_symmetric_triplet_vertical,
+    split_symmetric_triplet_horizontal
+)
 
-# available_rules 字典將會被 RuleEngine 使用
-available_rules: Dict[str, Callable] = {}
-
-# 遍歷 'rules' 這個 package 下的所有模組
-for _, name, _ in pkgutil.iter_modules(__path__):
-    # 匯入找到的模組 (e.g., rules.split_basic)
-    module = __import__(f"{__name__}.{name}", fromlist=[""])
+# 這個字典會被 RuleSelector 使用，集中管理所有可用的規則
+available_rules = {
+    # --- Basic Rules ---
+    "vertical": split_vertical,
+    "horizontal": split_horizontal,
+    "quadrants": split_quadrants,
     
-    # 在模組中尋找所有以 "split_" 開頭的函式
-    for item_name, item in inspect.getmembers(module, inspect.isfunction):
-        if item_name.startswith("split_"):
-            # 將 "split_vertical" 轉換為 "vertical" 作為規則名稱
-            rule_name = item_name.split("_", 1)[1]
-            available_rules[rule_name] = item
-
-print(f"自動註冊規則: {list(available_rules.keys())}")
+    # --- Aligned Rule ---
+    "aligned": split_aligned,
+    
+    # --- Symmetric Rules ---
+    "mirrored_vertical": split_mirrored_vertical,
+    "mirrored_horizontal": split_mirrored_horizontal,
+    "common_centroid": split_common_centroid_quadrants,
+    "triplet_vertical": split_symmetric_triplet_vertical,
+    "triplet_horizontal": split_symmetric_triplet_horizontal,
+}
