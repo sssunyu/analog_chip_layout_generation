@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 
 # tools
-process_files.py
 combine_files.txt
 trees.txt
 

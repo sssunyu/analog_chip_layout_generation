@@ -2,7 +2,7 @@
 
 from aclg.dataclass.component import Component
 
-def split_vertical(
+def split_horizontal(
         component: Component, 
         ratio: float = 0.5
         ) -> list[Component]:
@@ -34,7 +34,7 @@ def split_vertical(
     
     return [left_component, right_component]
 
-def split_horizontal(
+def split_vertical(
         component: Component, 
         ratio: float = 0.5
         ) -> list[Component]:

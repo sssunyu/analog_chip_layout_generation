@@ -23,3 +23,5 @@ class Component:
         return (self.x - self.width / 2, self.y - self.height / 2)
     def get_bottomright(self):
         return (self.x + self.width / 2, self.y + self.height / 2)
+    def w_h_ratio(self):
+        return self.width / self.height
