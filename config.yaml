@@ -76,12 +76,14 @@ NetlistGenerator:
     # >4 pin 元件的 pin 腳數量隨機範圍
     large_pin_count_range: [5, 10]
   
+  # --- 以下為舊參數，可保留或刪除 ---
   pin_dist_alpha: 2.5
   min_pins_per_comp: 2
   max_pins_per_comp: 50
-  edge_scale_param: 15.0
-  edge_gamma_multiplier: 0.05
-  max_edge_prob: 0.9
+  
+  edge_scale_param: 15      # 對應 Scale s
+  edge_gamma_multiplier: 0.2  # 對應 γ
+  max_edge_prob: 0.9         # 對應 Max p
 
 # --- 主執行流程 (main_execution) 參數 ---
 main_execution:
