@@ -2,6 +2,7 @@
 """
 此腳本用於視覺化 `format_for_ml.py` 產生的 ML-ready JSON 檔案，
 以驗證資料轉換的正確性。
+(新版：增加了對稱群組的視覺化功能，以不同顏色標示)
 """
 
 import os
@@ -31,13 +32,24 @@ def plot_formatted_layout(data: Dict[str, Any], output_path: str, canvas_size: T
     nodes = data.get("node", [])
     targets = data.get("target", [])
     edges = data.get("edges", {}).get("basic_component_edge", [])
+    # --- [新增] 讀取對稱群組資訊 ---
+    symmetry_groups = data.get("symmetry_groups", [])
 
     if not nodes or not targets:
         print(f"⚠️ 警告：檔案缺少 'node' 或 'target' 資料，無法繪圖。")
         return
 
     fig, ax = plt.subplots(figsize=(12, 12))
-    ax.set_facecolor('#f0f0f0') # 淺灰色背景
+    ax.set_facecolor('#f0f0f0')
+
+    # --- [新增] 為對稱群組準備顏色 ---
+    SYMMETRY_COLORS = ['#ff796c', '#6cff79', '#796cff', '#ffc56c', '#6cffc5', '#c56cff']
+    component_colors = {}
+    for i, pair in enumerate(symmetry_groups):
+        color = SYMMETRY_COLORS[i % len(SYMMETRY_COLORS)]
+        if len(pair) == 2:
+            component_colors[pair[0]] = color
+            component_colors[pair[1]] = color
 
     # 1. 繪製元件 (Nodes)
     components = []
@@ -45,7 +57,6 @@ def plot_formatted_layout(data: Dict[str, Any], output_path: str, canvas_size: T
         norm_w, norm_h = nodes[i]
         norm_x, norm_y = targets[i]
         
-        # 反正規化
         abs_w = norm_w * canvas_w
         abs_h = norm_h * canvas_h
         abs_x = norm_x * (canvas_w / 2)
@@ -56,13 +67,14 @@ def plot_formatted_layout(data: Dict[str, Any], output_path: str, canvas_size: T
         
         components.append({'x': abs_x, 'y': abs_y, 'w': abs_w, 'h': abs_h})
 
-        # 繪製矩形
+        # --- [修改] 根據是否為對稱元件，決定顏色 ---
+        face_color = component_colors.get(i, 'skyblue') # 預設為 skyblue，對稱則使用指定顏色
+
         rect = plt.Rectangle(
             (top_left_x, top_left_y), abs_w, abs_h,
-            linewidth=1, edgecolor='black', facecolor='skyblue', alpha=0.7
+            linewidth=1, edgecolor='black', facecolor=face_color, alpha=0.7
         )
         ax.add_patch(rect)
-        # 標示節點索引
         ax.text(abs_x, abs_y, str(i), ha='center', va='center', fontsize=8, color='black')
 
     # 2. 繪製網路線 (Edges)
@@ -76,13 +88,11 @@ def plot_formatted_layout(data: Dict[str, Any], output_path: str, canvas_size: T
             src_comp = components[src_idx]
             dest_comp = components[dest_idx]
 
-            # 計算 pin 的絕對座標
             src_pin_x = src_comp['x'] + src_off_x * (canvas_w / 2)
             src_pin_y = src_comp['y'] + src_off_y * (canvas_h / 2)
             dest_pin_x = dest_comp['x'] + dest_off_x * (canvas_w / 2)
             dest_pin_y = dest_comp['y'] + dest_off_y * (canvas_h / 2)
 
-            # 繪製連線
             ax.plot([src_pin_x, dest_pin_x], [src_pin_y, dest_pin_y], color='#555555', linestyle='-', linewidth=0.8, alpha=0.7)
             all_pins.add((src_pin_x, src_pin_y))
             all_pins.add((dest_pin_x, dest_pin_y))
