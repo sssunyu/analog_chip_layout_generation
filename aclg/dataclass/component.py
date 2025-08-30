@@ -1,5 +1,5 @@
 # component.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class Component:
@@ -17,7 +17,8 @@ class Component:
     level: int = 0
     relation_id: int = 0
     generate_rule: str = ""
-    sub_components: list["Component"] = None
+    symmetric_group_id: int = -1
+    sub_components: list["Component"] = field(default_factory=list)
 
     def get_topleft(self):
         return (self.x - self.width / 2, self.y - self.height / 2)
